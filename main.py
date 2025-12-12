@@ -1,9 +1,10 @@
-from flask import Flask, render_template, session, redirect, request, url_for, flash #Flask is a class from the Flask framework
+from flask import Flask, render_template, session, redirect, request, url_for, abort, flash #Flask is a class from the Flask framework
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import current_user, login_user, login_required, logout_user
 from controller.config import Config
 from controller.database import db
 from controller.models import *
+from sqlalchemy import or_
 
 app = Flask(__name__) #object creation
 app.config.from_object(Config) # Load configuration from Config class
@@ -57,7 +58,7 @@ def login():
             session['role'] = 'lot_manager' if 'lot_manager' in roles else 'customer'
             # redirect based on role
             if session['role'] == 'lot_manager':
-                return render_template('home.html')
+                return redirect(url_for('dashboard'))
             else:
                 return render_template('home.html')
         else:
@@ -125,6 +126,108 @@ def register():
         flash('Registration successful! Please login.', 'success')
         return redirect(url_for('login'))
     return render_template('register.html')    
+
+
+
+
+@app.route('/dashboard')
+def dashboard():
+    user = User.query.get(session.get('user_id'))
+    if not user:
+        return redirect(url_for('login'))
+
+    manager = LotManager.query.filter_by(user_id=user.user_id).first()
+    if not manager:
+        lots = []
+    else:
+        # Start with a Query object
+        query = ParkingLot.query.filter_by(manager_id=manager.manager_id)
+
+        search_term = request.args.get('search')
+        if search_term:
+            pattern = f"%{search_term}%"
+            query = query.filter(
+                or_(
+                    ParkingLot.lot_name.ilike(pattern),
+                    ParkingLot.city.ilike(pattern),
+                    ParkingLot.pincode.ilike(pattern)
+                )
+            )
+
+        # Only call .all() once at the end
+        lots = query.all()
+
+    return render_template('lotmanager.html', lots=lots)
+
+
+
+@app.route('/add_lot', methods=['GET', 'POST'])
+def add_lot():
+    if request.method == 'POST':
+        # Read form fields
+        lot_name = request.form.get('lot_name')
+        address = request.form.get('address')
+        city = request.form.get('city')
+        pincode = request.form.get('pincode')
+        
+        # Convert to int so we can use in range()
+        number_of_spots = request.form.get("number_of_spots", type=int)
+        price = request.form.get("price_per_hour", type=float)
+
+        manager = LotManager.query.filter_by(user_id=session.get('user_id')).first()
+        if not manager:
+            return redirect(url_for('dashboard'))
+
+        # Create parking lot
+        new_lot = ParkingLot(
+            lot_name=lot_name,
+            address=address,
+            city=city,
+            pincode=pincode,
+            number_of_spots=number_of_spots,
+            price_per_hour=price,
+            manager_id=manager.manager_id
+        )
+        db.session.add(new_lot)
+        db.session.commit()  # needed so new_lot.lot_id exists
+
+        # Now create ParkingSpot objects
+        for i in range(1, number_of_spots + 1):
+            spot = ParkingSpot(
+                lot_id=new_lot.lot_id,
+                spot_number=str(i),
+                is_occupied='A'  # default available
+            )
+            db.session.add(spot)
+
+        db.session.commit()  # commit spot records too
+
+        return redirect(url_for('dashboard'))
+
+    return render_template("add_lot.html")
+
+
+@app.route('/edit_lot/<int:lot_id>', methods=['GET', 'POST'])
+def edit_lot(lot_id):
+    lot = ParkingLot.query.get_or_404(lot_id)
+    if request.method == 'POST':
+        lot.lot_name = request.form.get('lot_name')
+        lot.address = request.form.get('address')
+        lot.city = request.form.get('city')
+        lot.pincode = request.form.get('pincode')
+        lot.price_per_hour = request.form.get("price_per_hour", type=float)
+        db.session.commit()
+        return redirect(url_for('dashboard'))
+
+    return render_template('edit_lot.html', lot=lot)
+
+
+@app.route('/delete_lot/<int:lot_id>', methods=['POST'])
+def delete_lot(lot_id):
+    lot = ParkingLot.query.get_or_404(lot_id)
+    db.session.delete(lot)
+    db.session.commit()
+    return redirect(url_for('dashboard'))
 
 
 

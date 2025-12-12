@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin / Lot Manager Dashboard</title>
+  <!-- Bootstrap CSS (v5) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #f4f6f9;
+    }
+    .card-custom {
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      transition: transform .2s;
+    }
+    .card-custom:hover {
+      transform: scale(1.02);
+    }
+    .card-add-lot {
+      cursor: pointer;
+      background-color: #ffffff;
+      text-align: center;
+      padding: 2rem;
+    }
+    .card-add-lot .btn {
+      width: 100%;
+    }
+    .spot-btn {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">MyParkingApp</a>
+      <button class="navbar-toggler" type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#navbarNav"
+              aria-controls="navbarNav"
+              aria-expanded="false"
+              aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav mx-auto">
+          <li class="nav-item"><a class="nav-link" href="#">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="#">Customers</a></li>
+          <li class="nav-item"><a class="nav-link" href="#">Insights</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Logout</a></li>
+        </ul>
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="#">Profile</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Add a Lot button at top right under navbar -->
+  <div class="container mt-3">
+    <div class="d-flex justify-content-end">
+      <div class="card card-custom card-add-lot px-3 py-2"
+         style="cursor: pointer; max-width:200px;"
+        onclick="window.location.href='{{ url_for('add_lot') }}'">
+        <div class="d-flex align-items-center">
+            <span class="fw-bold">Add a Lot</span>
+        </div>
+        </div>
+    </div>
+  </div>
+
+  <!-- Main container -->
+  <div class="container mt-5">
+    <h1 class="mb-4">Dashboard</h1>
+
+    <!-- Search Bar -->
+<div class="container mb-3">
+  <form method="GET" action="{{ url_for('dashboard') }}" class="d-flex">
+    <input
+      class="form-control me-2"
+      type="search"
+      name="search"
+      placeholder="Search lots by name or city"
+      value="{{ request.args.get('search', '') }}"
+      aria-label="Search">
+    <button class="btn btn-outline-success" type="submit">Search</button>
+  </form>
+</div>
+
+
+
+
+
+    <!-- Parking Lots List -->
+    <div class="row">
+      {% if lots %}
+        {% for lot in lots %}
+          <div class="col-md-6 mb-4">
+            <div class="card card-custom h-100">
+              <div class="card-body">
+
+                <!-- Lot header with Edit & Delete -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h5 class="card-title">{{ lot.lot_name }}</h5>
+                  <div class="d-flex gap-2">
+
+                    <!-- Edit button -->
+                    <a href="{{ url_for('edit_lot', lot_id=lot.lot_id) }}"
+                       class="btn btn-sm btn-warning">Edit</a>
+
+                    <!-- Delete button (POST form) -->
+                    <form action="{{ url_for('delete_lot', lot_id=lot.lot_id) }}" method="POST"
+                          style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this lot?');">
+                      <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+
+                  </div>
+                </div>
+
+                <!-- Lot details -->
+                <p class="text-muted small mb-2">
+                  {{ lot.address }}, {{ lot.city }} — PIN: {{ lot.pincode }}
+                </p>
+                <p class="mb-2"><strong>Price/hr:</strong> {{ lot.price_per_hour or 'N/A' }}</p>
+
+                <!-- Spots -->
+                <div><strong>Spots:</strong></div>
+                <div class="d-flex flex-wrap">
+                  {% for spot in lot.spots %}
+                      <button class="btn btn-sm btn-success m-1 spot-btn">
+                        {{ spot.is_occupied }}
+                      </button>
+                    {% endfor %}
+                </div>
+
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">No parking lots available yet.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
